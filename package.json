@@ -1,0 +1,22 @@
+{
+  "name": "waha-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bot de WhatsApp sobre WAHA que responde consultas conectandose a APIs externas",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "dev": "node --env-file-if-exists=.env --watch src/index.js",
+    "waha:up": "docker compose up -d",
+    "waha:down": "docker compose down",
+    "waha:logs": "docker compose logs -f waha"
+  },
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
