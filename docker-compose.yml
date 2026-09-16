@@ -1,0 +1,27 @@
+services:
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: waha
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      # Protege la API de WAHA. Tiene que coincidir con WAHA_API_KEY del .env del bot.
+      WHATSAPP_API_KEY: ${WAHA_API_KEY}
+
+      # A dónde manda los eventos. host.docker.internal = tu Mac, visto desde el contenedor.
+      WHATSAPP_HOOK_URL: http://host.docker.internal:${PORT:-3001}/webhook
+      WHATSAPP_HOOK_EVENTS: message
+      WHATSAPP_HOOK_HMAC_KEY: ${WEBHOOK_HMAC_KEY}
+
+      WHATSAPP_DEFAULT_ENGINE: WEBJS
+      WHATSAPP_RESTART_ALL_SESSIONS: 'true'
+      WAHA_PRINT_QR: 'false'
+
+      # Dashboard en http://localhost:3000/dashboard
+      WAHA_DASHBOARD_USERNAME: ${WAHA_DASHBOARD_USERNAME:-admin}
+      WAHA_DASHBOARD_PASSWORD: ${WAHA_DASHBOARD_PASSWORD:-admin}
+    volumes:
+      - ./.waha-sessions:/app/.sessions
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
