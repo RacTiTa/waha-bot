@@ -4,13 +4,16 @@ const MATCH_DURATION_MS = 2.5 * 60 * 60 * 1000;
 
 /**
  * Forma común que consumen el router y los tests, sin importar el proveedor.
- * @returns {{home,away,league,round,venue,date:Date,live,finished,score}}
+ * `id` es el identificador del partido en el proveedor: sirve para pedirle
+ * después más datos (formaciones, árbitro) del mismo partido.
+ * @returns {{id,home,away,league,round,venue,date:Date,live,finished,score}}
  */
-export function makeMatch({ home, away, league, round, venue, date, status, homeScore, awayScore }) {
+export function makeMatch({ id, home, away, league, round, venue, date, status, homeScore, awayScore }) {
   const started = date ? Date.now() >= date.getTime() : false;
   const stale = date ? Date.now() > date.getTime() + MATCH_DURATION_MS : false;
 
   return {
+    id: id ?? null,
     home,
     away,
     league,

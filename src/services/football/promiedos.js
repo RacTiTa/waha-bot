@@ -69,6 +69,7 @@ function rowsToMatches(section, data) {
       const [homeScore, awayScore] = game.scores ?? [];
 
       return makeMatch({
+        id: game.id,
         home: home?.name,
         away: away?.name,
         league,
@@ -82,6 +83,58 @@ function rowsToMatches(section, data) {
       });
     })
     .filter((m) => m && m.date);
+}
+
+/** Extrae el JSON de la ficha de un partido (/game/...). */
+export function parseGamePage(html) {
+  const match = NEXT_DATA.exec(html ?? '');
+  if (!match) throw new Error('Promiedos: no encontré __NEXT_DATA__ en el HTML');
+
+  const game = JSON.parse(match[1])?.props?.pageProps?.initialData?.game;
+  if (!game) throw new Error('Promiedos: el HTML no tiene datos del partido');
+  return game;
+}
+
+const infoValue = (game, name) => game.game_info?.find((i) => i.name === name)?.value ?? null;
+
+const playerLine = (p) => ({
+  number: p.jersey_num > 0 ? p.jersey_num : null,
+  name: p.player_short_name || p.name,
+  captain: Boolean(p.is_captain),
+});
+
+/**
+ * Las formaciones aparecen recién un rato antes del partido (primero como
+ * "Probable", después "Confirmado"). Si todavía no están, devolvemos null.
+ */
+function toLineups(game) {
+  const teams = game.players?.lineups?.teams;
+  if (!teams?.length) return null;
+
+  return {
+    // El estado lo publican por equipo, pero en la práctica es el mismo.
+    status: teams[0]?.status ?? null,
+    teams: teams.map((t) => ({
+      // team_num 1 = local, 2 = visitante.
+      name: game.teams?.[t.team_num - 1]?.name ?? null,
+      formation: t.formation ?? null,
+      coach: t.staff?.find((s) => s.formation_position === 'Entrenador')?.name ?? null,
+      starting: (t.starting ?? []).map(playerLine),
+    })),
+  };
+}
+
+/** Lesionados y suspendidos: vienen en un array por equipo, en el mismo orden. */
+function toMissing(game) {
+  return (game.players?.missing_players ?? [])
+    .map((players, i) => ({
+      name: game.teams?.[i]?.name ?? null,
+      players: (players ?? []).map((p) => ({
+        name: p.player_short_name || p.name,
+        reason: p.missing_details?.reason ?? null,
+      })),
+    }))
+    .filter((t) => t.players.length);
 }
 
 /**
@@ -133,6 +186,27 @@ export function createPromiedos({ fetchImpl = fetch } = {}) {
     async team(teamId) {
       const { competitor } = await teamPage(teamId);
       return competitor ? { id: competitor.id, name: competitor.name } : null;
+    },
+
+    /** Ficha del partido: formaciones, bajas, árbitro y TV. */
+    async details(matchId) {
+      // Igual que con los equipos, el slug del partido no se valida.
+      const res = await fetchImpl(`${BASE}/game/x/${encodeURIComponent(matchId)}`, {
+        headers: { 'user-agent': UA, accept: 'text/html' },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) throw new Error(`Promiedos respondió ${res.status}`);
+
+      const game = parseGamePage(await res.text());
+      return {
+        // A diferencia de la página del equipo, acá sí viene la liga del partido.
+        league: game.league?.name ?? null,
+        venue: infoValue(game, 'Estadio'),
+        referee: infoValue(game, 'Árbitro'),
+        tv: infoValue(game, 'Arg TV'),
+        lineups: toLineups(game),
+        missing: toMissing(game),
+      };
     },
   };
 }

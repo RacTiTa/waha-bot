@@ -1,13 +1,29 @@
 import { config } from './config.js';
-import { getNextMatch, getLastMatch, getTeam, provider } from './services/football/index.js';
+import {
+  getLastMatch,
+  getMatchDetails,
+  getNextMatch,
+  getTeam,
+  provider,
+} from './services/football/index.js';
 
 const HELP = [
-  '👋 Hola! Soy un bot. Por ahora sé una sola cosa:',
+  '👋 Hola! Soy un bot. Por ahora sé dos cosas:',
   '',
   '• *próximo partido de Boca* — te digo cuándo juega',
+  '• *formación* — el once, si ya lo publicaron',
   '',
   'Escribí *ayuda* para ver esto de nuevo.',
 ].join('\n');
+
+function formatTime(date) {
+  return new Intl.DateTimeFormat('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23', // en es-AR el default es 12h ("08:30 p. m.")
+    timeZone: config.timezone,
+  }).format(date);
+}
 
 function formatDate(date) {
   const fecha = new Intl.DateTimeFormat('es-AR', {
@@ -17,14 +33,7 @@ function formatDate(date) {
     timeZone: config.timezone,
   }).format(date);
 
-  const hora = new Intl.DateTimeFormat('es-AR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23', // en es-AR el default es 12h ("08:30 p. m.")
-    timeZone: config.timezone,
-  }).format(date);
-
-  return `${fecha.charAt(0).toUpperCase()}${fecha.slice(1)} a las ${hora} hs`;
+  return `${fecha.charAt(0).toUpperCase()}${fecha.slice(1)} a las ${formatTime(date)} hs`;
 }
 
 function countdown(date) {
@@ -67,6 +76,84 @@ export function formatMatch(match, teamName) {
     .join('\n');
 }
 
+const MAX_BAJAS = 5;
+
+/** Aviso de la mañana del partido: hora, cancha, TV y árbitro si los sabemos. */
+export function formatMatchDay(match, teamName, details = null) {
+  const league = details?.league ?? match.league;
+
+  return [
+    `📣 *Hoy juega ${teamName}*`,
+    '',
+    `*${match.home} vs ${match.away}*`,
+    league ? `🏆 ${league}${match.round ? ` — fecha ${match.round}` : ''}` : null,
+    `🕒 ${formatTime(match.date)} hs`,
+    details?.venue || match.venue ? `🏟 ${details?.venue ?? match.venue}` : null,
+    details?.tv ? `📺 ${details.tv}` : null,
+    details?.referee ? `👨‍⚖️ ${details.referee}` : null,
+  ]
+    .filter((l) => l !== null)
+    .join('\n');
+}
+
+/** Promiedos dice "Confirmado"/"Probable"; en femenino para "la formación". */
+function lineupStatus(status) {
+  if (/confirm/i.test(status ?? '')) return ' confirmada';
+  if (/probable/i.test(status ?? '')) return ' probable';
+  return '';
+}
+
+const playerName = (p) =>
+  `${p.number ? `${p.number} ` : ''}${p.name}${p.captain ? ' (C)' : ''}`;
+
+function bajasLine(team) {
+  const nombres = team.players.slice(0, MAX_BAJAS).map((p) => p.name);
+  const resto = team.players.length - nombres.length;
+  return `🤕 Bajas ${team.name}: ${nombres.join(', ')}${resto > 0 ? ` y ${resto} más` : ''}`;
+}
+
+/** Formaciones (probables o confirmadas) de los dos equipos. */
+export function formatLineups(match, details) {
+  const { lineups, missing = [] } = details ?? {};
+  if (!lineups?.teams?.length) return null;
+
+  const equipos = lineups.teams.flatMap((team) => [
+    `*${team.name}*${team.formation ? ` — ${team.formation}` : ''}`,
+    team.starting.map(playerName).join(', '),
+    team.coach ? `DT: ${team.coach}` : null,
+    '',
+  ]);
+
+  return [
+    `📋 *Formación${lineupStatus(lineups.status)}*`,
+    `${match.home} vs ${match.away} — ${formatTime(match.date)} hs`,
+    '',
+    ...equipos,
+    ...missing.filter((t) => t.players.length).map(bajasLine),
+  ]
+    .filter((l) => l !== null)
+    .join('\n')
+    .trimEnd();
+}
+
+async function lineupsReply() {
+  const match = await getNextMatch();
+  if (!match) return '🤔 No tengo el próximo partido, así que menos la formación.';
+
+  const details = await getMatchDetails(match).catch(() => null);
+  const texto = formatLineups(match, details);
+  if (texto) return texto;
+
+  const falta = countdown(match.date);
+  return [
+    `⏳ Todavía no publicaron la formación de *${match.home} vs ${match.away}*.`,
+    'Suele salir un rato antes del partido.',
+    falta ? `(${falta})` : null,
+  ]
+    .filter((l) => l !== null)
+    .join('\n');
+}
+
 async function nextMatchReply() {
   const [team, match] = await Promise.all([getTeam().catch(() => null), getNextMatch()]);
   const teamName = team?.name ?? 'Boca Juniors';
@@ -87,6 +174,14 @@ async function nextMatchReply() {
 }
 
 const INTENTS = [
+  {
+    name: 'formacion',
+    // "formacion", "alineacion", "el once", "como forma boca"
+    test: (t) =>
+      /\b(formaci[oó]n|formacion|alineaci[oó]n|alineacion|el once|onceno)\b/.test(t) ||
+      /\bc[oó]mo forma\b/.test(t),
+    run: lineupsReply,
+  },
   {
     name: 'proximo-partido',
     // "cuando juega boca", "proximo partido", "boca?", "a que hora juega"

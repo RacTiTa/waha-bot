@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { formatMatch } from '../src/router.js';
+import { formatLineups, formatMatch, formatMatchDay } from '../src/router.js';
 import { makeMatch } from '../src/services/football/normalize.js';
 
 const enHoras = (h) => new Date(Date.now() + h * 3_600_000);
@@ -50,4 +50,74 @@ test('un partido viejo sin estado se considera terminado', () => {
 test('muestra la cuenta regresiva en días y horas', () => {
   const match = makeMatch({ home: 'A', away: 'B', league: 'L', date: enHoras(50), status: 'NS' });
   assert.match(formatMatch(match, 'Boca'), /Faltan 2 días y 2 h/);
+});
+
+const detalle = {
+  league: 'Liga Profesional Argentina',
+  venue: 'Estadio Alberto José Armando',
+  referee: 'Leandro Rey Hilfer',
+  tv: 'ESPN Premium',
+  lineups: {
+    status: 'Confirmado',
+    teams: [
+      {
+        name: 'Boca Juniors',
+        formation: '4-1-2-1-2',
+        coach: 'Claudio Úbeda',
+        starting: [
+          { number: 1, name: 'Marchesín', captain: false },
+          { number: 5, name: 'Paredes', captain: true },
+        ],
+      },
+      {
+        name: 'Instituto',
+        formation: '3-4-3',
+        coach: 'Diego Flores',
+        starting: [{ number: 28, name: 'Roffo', captain: false }],
+      },
+    ],
+  },
+  missing: [
+    {
+      name: 'Boca Juniors',
+      players: ['Ascacibar', 'Belmonte', 'Zeballos', 'Giménez', 'Cavani', 'Palacios'].map((name) => ({
+        name,
+        reason: 'Lesionado',
+      })),
+    },
+  ],
+};
+
+const partido = makeMatch({
+  home: 'Boca Juniors',
+  away: 'Instituto',
+  league: 'Liga Profesional Argentina',
+  round: '9',
+  date: new Date('2026-03-22T23:00:00Z'), // 20:00 en Buenos Aires
+  status: 'NS',
+});
+
+test('el aviso del día del partido suma cancha, TV y árbitro', () => {
+  const texto = formatMatchDay(partido, 'Boca Juniors', detalle);
+
+  assert.match(texto, /Hoy juega Boca Juniors/);
+  assert.match(texto, /🕒 20:00 hs/);
+  assert.match(texto, /ESPN Premium/);
+  assert.match(texto, /Leandro Rey Hilfer/);
+  assert.doesNotMatch(texto, /Faltan/); // la cuenta regresiva es del otro mensaje
+});
+
+test('la formación lista titulares, DT y bajas', () => {
+  const texto = formatLineups(partido, detalle);
+
+  assert.match(texto, /\*Formación confirmada\*/);
+  assert.match(texto, /\*Boca Juniors\* — 4-1-2-1-2/);
+  assert.match(texto, /1 Marchesín, 5 Paredes \(C\)/);
+  assert.match(texto, /DT: Claudio Úbeda/);
+  assert.match(texto, /Bajas Boca Juniors: .*Cavani y 1 más/);
+});
+
+test('sin formaciones publicadas no arma mensaje', () => {
+  assert.equal(formatLineups(partido, { lineups: null }), null);
+  assert.equal(formatLineups(partido, null), null);
 });

@@ -24,9 +24,9 @@ export const provider = pickProvider();
 
 const cache = new Map(); // clave -> { at, value }
 
-async function cached(key, fn) {
+async function cached(key, fn, ttl = config.football.cacheTtlMs) {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < config.football.cacheTtlMs) return hit.value;
+  if (hit && Date.now() - hit.at < ttl) return hit.value;
 
   const value = await fn();
   cache.set(key, { at: Date.now(), value });
@@ -52,4 +52,16 @@ export async function getLastMatch() {
 
 export async function getTeam() {
   return cached('team', () => provider.team(teamId()));
+}
+
+// Las formaciones se publican poco antes del partido y cambian: caché corto.
+const DETAILS_TTL_MS = 2 * 60 * 1000;
+
+/**
+ * Ficha del partido (formaciones, bajas, árbitro, TV). Sólo la tiene Promiedos;
+ * con otro proveedor devuelve null.
+ */
+export async function getMatchDetails(match) {
+  if (!provider.details || !match?.id) return null;
+  return cached(`details:${match.id}`, () => provider.details(match.id), DETAILS_TTL_MS);
 }
