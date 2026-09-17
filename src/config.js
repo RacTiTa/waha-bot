@@ -58,7 +58,7 @@ export const config = {
     // Minuto del día (hora local) en que avisa que hoy se juega.
     matchDayMinutes: hhmm(process.env.NOTIFY_MATCH_DAY_AT, 9 * 60),
     // Cuánto antes del partido empieza a buscar la formación.
-    lineupMinutes: Number(process.env.NOTIFY_LINEUP_MINUTES ?? 75),
+    lineupMinutes: Number(process.env.NOTIFY_LINEUP_MINUTES ?? 60),
     pollMs: Number(process.env.NOTIFY_POLL_MINUTES ?? 5) * 60 * 1000,
     stateFile: process.env.NOTIFY_STATE_FILE ?? '.state/notifications.json',
   },

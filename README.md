@@ -115,14 +115,14 @@ mensajes por partido:
 
 1. **El día del partido**, a la hora que digas (`NOTIFY_MATCH_DAY_AT`, default 09:00):
    horario, cancha, TV y árbitro.
-2. **Un rato antes** (`NOTIFY_LINEUP_MINUTES`, default 75): la formación, apenas
+2. **Un rato antes** (`NOTIFY_LINEUP_MINUTES`, default 60): la formación, apenas
    Promiedos la publica. Si todavía no salió, reintenta en cada vuelta hasta 15 minutos
    después del inicio; si nunca sale, no manda nada.
 
 ```bash
 NOTIFY_TO=5491122334455          # o el id de un grupo: 1234567890-1234567890@g.us
 NOTIFY_MATCH_DAY_AT=09:00
-NOTIFY_LINEUP_MINUTES=75
+NOTIFY_LINEUP_MINUTES=60
 NOTIFY_POLL_MINUTES=5            # cada cuánto revisa
 ```
 
