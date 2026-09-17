@@ -3,7 +3,7 @@
 Bot de WhatsApp sobre [WAHA](https://waha.devlike.pro/) (WhatsApp HTTP API).
 Recibe mensajes por webhook, los rutea a un *intent* y responde consultando una API externa.
 
-Hoy sabe una sola cosa: **cuándo juega Boca**.
+Sabe **cuándo juega Boca**, **cómo forma** y te avisa solo el día del partido.
 
 ```
 ⚽ Próximo partido de Boca Juniors
@@ -88,6 +88,10 @@ https://www.promiedos.com.ar/team/x/igg
 El `id` sale de la URL del equipo en el sitio (`/team/boca-juniors/igg` → `igg`) y se
 configura con `PROMIEDOS_TEAM_ID`.
 
+La ficha de cada partido (`/game/x/{id}`) agrega formaciones, bajas, árbitro, TV y la
+liga real —la página del equipo no la trae, por eso los partidos de copa salen sin el
+`🏆` hasta que se consulta la ficha—.
+
 Para datos de fútbol argentino es lo más confiable que hay gratis —es la fuente que mira
 todo el mundo acá, con horarios y reprogramaciones al día—, pero tiene la contra de todo
 scraping:
@@ -104,6 +108,64 @@ Si querés algo que no dependa de que no toquen el HTML, poné una `APIFOOTBALL_
 es un contrato real, con versionado y soporte, a cambio de registrarte y de un límite
 de 100 requests por día.
 
+## Avisos automáticos
+
+Además de contestar, el bot puede escribir primero. Con `NOTIFY_TO` cargado manda dos
+mensajes por partido:
+
+1. **El día del partido**, a la hora que digas (`NOTIFY_MATCH_DAY_AT`, default 09:00):
+   horario, cancha, TV y árbitro.
+2. **Un rato antes** (`NOTIFY_LINEUP_MINUTES`, default 75): la formación, apenas
+   Promiedos la publica. Si todavía no salió, reintenta en cada vuelta hasta 15 minutos
+   después del inicio; si nunca sale, no manda nada.
+
+```bash
+NOTIFY_TO=5491122334455          # o el id de un grupo: 1234567890-1234567890@g.us
+NOTIFY_MATCH_DAY_AT=09:00
+NOTIFY_LINEUP_MINUTES=75
+NOTIFY_POLL_MINUTES=5            # cada cuánto revisa
+```
+
+Ejemplos reales:
+
+```
+📣 *Hoy juega Flamengo*
+
+*Flamengo vs Independiente Del Valle*
+🏆 CONMEBOL Copa Libertadores
+🕒 21:30 hs
+🏟 Estadio Jornalista Mário Filho (Maracanã)
+📺 Fox Sports, Disney+ Premium
+👨‍⚖️ Andrés Matonte
+```
+
+```
+📋 *Formación confirmada*
+Boca Juniors vs Instituto — 20:00 hs
+
+*Boca Juniors* — 4-1-2-1-2
+1 Marchesín, 3 Blanco, 32 Costa, 2 Di Lollo, 23 Weigandt, 5 Paredes (C), 21 Herrera, 18 Delgado, 36 Aranda, 16 Merentiel, 28 Bareiro
+DT: Claudio Úbeda
+
+*Instituto* — 3-4-3
+28 Roffo, 6 Alarcón (C), 26 Mosevich, 22 Massaccesi, 3 Sosa, 19 Lodico, 55 Abregú, 44 Cerato, 10 Luna, 11 Fonseca, 20 Cordoba
+DT: Diego Flores
+
+🤕 Bajas Boca Juniors: Ascacibar, Belmonte, Zeballos, Giménez, Cavani y 2 más
+```
+
+Lo ya enviado se guarda en `.state/notifications.json`, así que reiniciar el bot no
+repite el aviso. El chequeo corre cada 5 minutos y sale a la red sólo si hay algo para
+mandar (el resto lo resuelve el caché).
+
+Dos detalles que conviene saber:
+
+- **Las formaciones sólo las trae Promiedos.** Con `api-football` o TheSportsDB el aviso
+  del día del partido funciona igual, pero el de la formación no se manda nunca.
+- **WhatsApp no sabe que es un bot.** Mandar mensajes no solicitados desde una cuenta
+  personal es justo lo que WhatsApp mira para banear: avisale a poca gente y no lo
+  conviertas en una lista de difusión.
+
 ## Seguridad
 
 - `WAHA_API_KEY` protege la API de WAHA; sin ella cualquiera en tu red puede mandar mensajes desde tu WhatsApp.
@@ -119,6 +181,7 @@ src/
 ├── config.js                   configuración desde variables de entorno
 ├── filters.js                  firma HMAC y qué mensajes se ignoran
 ├── waha.js                     cliente de WAHA (sendText, seen, typing)
+├── notifier.js                 avisos automáticos (día del partido y formación)
 ├── router.js                   intents y formato de las respuestas
 └── services/football/
     ├── index.js                elige proveedor + caché

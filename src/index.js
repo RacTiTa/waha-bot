@@ -1,6 +1,7 @@
 import express from 'express';
 import { config } from './config.js';
 import { ignoreReason, signatureIsValid } from './filters.js';
+import { startNotifier } from './notifier.js';
 import { routeMessage } from './router.js';
 import { waha, withTyping } from './waha.js';
 
@@ -42,5 +43,12 @@ app.listen(config.port, () => {
   console.log(`Bot escuchando en http://localhost:${config.port}`);
   console.log(`Webhook:  POST http://localhost:${config.port}/webhook`);
   console.log(`WAHA:     ${config.waha.url} (sesión "${config.waha.session}")`);
+
+  const avisos = startNotifier();
+  console.log(
+    avisos
+      ? `Avisos:   ${config.notify.to.join(', ')} (día del partido y formación)`
+      : 'Avisos:   apagados (NOTIFY_TO vacío)',
+  );
   if (!config.waha.apiKey) console.warn('⚠️  WAHA_API_KEY vacío: WAHA va a rechazar los envíos si tiene API key configurada.');
 });
