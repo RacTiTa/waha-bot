@@ -1,10 +1,11 @@
 import { config } from '../../config.js';
 import { createApiFootball } from './apifootball.js';
+import { createPromiedos } from './promiedos.js';
 import { createTheSportsDb } from './thesportsdb.js';
 
 /**
- * Elige el proveedor: api-football si hay key, si no TheSportsDB.
- * Se puede forzar con FOOTBALL_PROVIDER.
+ * Elige el proveedor: api-football si hay key, si no Promiedos (scraping, pero
+ * gratis y con fixtures). Se puede forzar con FOOTBALL_PROVIDER.
  */
 function pickProvider() {
   const forced = config.football.provider;
@@ -13,7 +14,10 @@ function pickProvider() {
   if (forced === 'api-football' || (forced === 'auto' && hasApiFootball)) {
     return createApiFootball({ key: config.football.apiFootballKey });
   }
-  return createTheSportsDb({ key: config.football.sportsDbKey });
+  if (forced === 'thesportsdb') {
+    return createTheSportsDb({ key: config.football.sportsDbKey });
+  }
+  return createPromiedos();
 }
 
 export const provider = pickProvider();
@@ -29,7 +33,7 @@ async function cached(key, fn) {
   return value;
 }
 
-const teamId = () => config.football.teamId[provider.name.startsWith('api-football') ? 'apiFootball' : 'sportsDb'];
+const teamId = () => config.football.teamId[provider.teamIdKey];
 
 /** Próximo partido que todavía no terminó (la API a veces deja el recién jugado en la lista). */
 export async function getNextMatch() {

@@ -49,6 +49,7 @@ export function createTheSportsDb({ key }) {
 
   return {
     name: premium ? 'thesportsdb (premium)' : 'thesportsdb (free)',
+    teamIdKey: 'sportsDb',
     supportsFixtures: premium,
 
     async nextMatches(teamId) {

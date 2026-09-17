@@ -24,13 +24,15 @@ export const config = {
   timezone: process.env.TIMEZONE ?? 'America/Argentina/Buenos_Aires',
 
   football: {
-    // 'auto' usa api-football si hay key, si no TheSportsDB. Valores: auto | api-football | thesportsdb
+    // 'auto' usa api-football si hay key, si no Promiedos.
+    // Valores: auto | api-football | promiedos | thesportsdb
     provider: process.env.FOOTBALL_PROVIDER ?? 'auto',
     apiFootballKey: process.env.APIFOOTBALL_KEY ?? '',
     sportsDbKey: process.env.SPORTSDB_KEY ?? '3',
     teamId: {
       sportsDb: process.env.SPORTSDB_TEAM_ID ?? '135156', // Boca Juniors
       apiFootball: process.env.APIFOOTBALL_TEAM_ID ?? '451', // Boca Juniors
+      promiedos: process.env.PROMIEDOS_TEAM_ID ?? 'igg', // Boca Juniors
     },
     cacheTtlMs: Number(process.env.FOOTBALL_CACHE_MINUTES ?? 10) * 60 * 1000,
   },

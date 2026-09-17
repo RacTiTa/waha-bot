@@ -55,21 +55,54 @@ Y para simular un mensaje entrante (con el bot corriendo):
 curl -X POST localhost:3001/webhook -H 'Content-Type: application/json' -d '{"event":"message","payload":{"id":"x","from":"5491122334455@c.us","fromMe":false,"body":"cuando juega boca?"}}'
 ```
 
-## La API de fútbol
+## De dónde salen los partidos
 
 Los partidos **futuros** de la liga argentina no están en ningún feed gratuito y abierto,
-así que el servicio soporta dos proveedores y se elige con `FOOTBALL_PROVIDER`:
+así que el servicio soporta varios proveedores y se elige con `FOOTBALL_PROVIDER`:
 
 | Proveedor | Variable | Partidos futuros | Notas |
 |---|---|---|---|
+| `promiedos` (default sin key) | `PROMIEDOS_TEAM_ID` | sí | Gratis y sin registro, pero es scraping. |
 | `api-football` | `APIFOOTBALL_KEY` | sí | Registro gratis, 100 requests/día. Verificá que tu plan cubra la temporada actual. |
 | `thesportsdb` (premium) | `SPORTSDB_KEY` | sí | Key paga, usa la API v2. |
-| `thesportsdb` (free, default) | `SPORTSDB_KEY=3` | **no** | Sin registro. Sólo sirve para resultados ya jugados. |
+| `thesportsdb` (free) | `SPORTSDB_KEY=3` | **no** | Sin registro. Sólo sirve para resultados ya jugados. |
 
-Con el default (`3`) el bot funciona pero responde que no hay fecha confirmada y muestra
-el último resultado. Para respuestas útiles, poné una `APIFOOTBALL_KEY` en el `.env`.
+Con `auto` (el default) se usa api-football si hay `APIFOOTBALL_KEY`, y si no Promiedos.
+Las respuestas se cachean 10 minutos (`FOOTBALL_CACHE_MINUTES`) para no gastar cuota
+ni golpear el sitio de más.
 
-Las respuestas se cachean 10 minutos (`FOOTBALL_CACHE_MINUTES`) para no gastar cuota.
+### Promiedos
+
+Promiedos no tiene API pública: la interna (`api.promiedos.com.ar`) responde `{}` sin
+credenciales. Lo que sí es público es el JSON que el sitio ya renderiza en la página del
+equipo, dentro del `<script id="__NEXT_DATA__">` de Next.js. De ahí salen próximos
+partidos, últimos resultados, ronda, horario en hora argentina y el estadio cuando juega
+de local, todo en un pedido de ~17 KB (gzip).
+
+```
+https://www.promiedos.com.ar/team/x/igg
+                                  ↑  ↑
+                              slug   id del equipo (el slug no se valida)
+```
+
+El `id` sale de la URL del equipo en el sitio (`/team/boca-juniors/igg` → `igg`) y se
+configura con `PROMIEDOS_TEAM_ID`.
+
+Para datos de fútbol argentino es lo más confiable que hay gratis —es la fuente que mira
+todo el mundo acá, con horarios y reprogramaciones al día—, pero tiene la contra de todo
+scraping:
+
+- No hay contrato ni SLA: si cambian la página, el parseo se rompe (los tests de
+  `test/promiedos.test.js` usan un HTML de ejemplo, así que **no** te vas a enterar por
+  ahí; te enterás cuando el bot conteste mal).
+- Es uso no previsto del sitio. Mantené el caché alto, no lo consultes en loop y no lo
+  uses para nada masivo.
+- No expone la liga de cada partido, sólo la principal del equipo: los partidos de copa
+  salen sin el `🏆`.
+
+Si querés algo que no dependa de que no toquen el HTML, poné una `APIFOOTBALL_KEY`:
+es un contrato real, con versionado y soporte, a cambio de registrarte y de un límite
+de 100 requests por día.
 
 ## Seguridad
 
@@ -90,6 +123,7 @@ src/
 └── services/football/
     ├── index.js                elige proveedor + caché
     ├── normalize.js            forma común de un partido
+    ├── promiedos.js            scraping del __NEXT_DATA__ de promiedos.com.ar
     ├── apifootball.js
     └── thesportsdb.js
 test/                           node --test

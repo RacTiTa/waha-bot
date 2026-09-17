@@ -34,6 +34,7 @@ export function createApiFootball({ key }) {
 
   return {
     name: 'api-football',
+    teamIdKey: 'apiFootball',
     supportsFixtures: true,
 
     async nextMatches(teamId) {

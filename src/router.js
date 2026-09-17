@@ -48,7 +48,7 @@ export function formatMatch(match, teamName) {
       '',
       `*${match.home} vs ${match.away}*`,
       match.score ? `⚽ Va ${match.score}` : null,
-      `🏆 ${match.league}`,
+      match.league ? `🏆 ${match.league}` : null,
     ]
       .filter((l) => l !== null)
       .join('\n');
@@ -58,7 +58,7 @@ export function formatMatch(match, teamName) {
     `⚽ *Próximo partido de ${teamName}*`,
     '',
     `*${match.home} vs ${match.away}*`,
-    `🏆 ${match.league}${match.round ? ` — fecha ${match.round}` : ''}`,
+    match.league ? `🏆 ${match.league}${match.round ? ` — fecha ${match.round}` : ''}` : null,
     `📅 ${formatDate(match.date)}`,
     match.venue ? `🏟 ${match.venue}` : null,
     countdown(match.date) ? `⏳ ${countdown(match.date)}` : null,
@@ -75,7 +75,7 @@ async function nextMatchReply() {
 
   const last = await getLastMatch().catch(() => null);
   const ultimo = last
-    ? `\n\nÚltimo partido: *${last.home} ${last.score ?? 'vs'} ${last.away}* (${last.league}).`
+    ? `\n\nÚltimo partido: *${last.home} ${last.score ?? 'vs'} ${last.away}*${last.league ? ` (${last.league})` : ''}.`
     : '';
 
   // La API gratuita de TheSportsDB no publica fixtures futuros: conviene decirlo.
