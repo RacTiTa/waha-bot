@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { formatHeadToHead, formatLineups, formatMatch, formatMatchDay } from '../src/router.js';
 import { makeMatch } from '../src/services/football/normalize.js';
+import type { MatchDetails } from '../src/services/football/types.js';
 
-const enHoras = (h) => new Date(Date.now() + h * 3_600_000);
+const enHoras = (h: number): Date => new Date(Date.now() + h * 3_600_000);
 
 test('formatea un partido futuro en hora argentina', () => {
   const match = makeMatch({
@@ -86,7 +87,7 @@ const detalle = {
       })),
     },
   ],
-};
+} as MatchDetails;
 
 const partido = makeMatch({
   home: 'Boca Juniors',
@@ -108,7 +109,7 @@ test('el aviso del día del partido suma cancha, TV y árbitro', () => {
 });
 
 test('la formación lista titulares, DT y bajas', () => {
-  const texto = formatLineups(partido, detalle);
+  const texto = formatLineups(partido, detalle) as string;
 
   assert.match(texto, /\*Formación confirmada\*/);
   assert.match(texto, /\*Boca Juniors\* — 4-1-2-1-2/);
@@ -118,7 +119,7 @@ test('la formación lista titulares, DT y bajas', () => {
 });
 
 test('sin formaciones publicadas no arma mensaje', () => {
-  assert.equal(formatLineups(partido, { lineups: null }), null);
+  assert.equal(formatLineups(partido, { lineups: null } as MatchDetails), null);
   assert.equal(formatLineups(partido, null), null);
 });
 
@@ -133,7 +134,7 @@ const headToHead = {
 };
 
 test('el historial suma el resumen de victorias y el detalle de cada cruce', () => {
-  const texto = formatHeadToHead(partido, { headToHead });
+  const texto = formatHeadToHead(partido, { headToHead } as MatchDetails) as string;
 
   assert.match(texto, /Historial Boca Juniors vs Instituto/);
   assert.match(texto, /Boca Juniors ganó 1/);
@@ -143,6 +144,6 @@ test('el historial suma el resumen de victorias y el detalle de cada cruce', () 
 });
 
 test('sin historial no arma mensaje', () => {
-  assert.equal(formatHeadToHead(partido, { headToHead: null }), null);
+  assert.equal(formatHeadToHead(partido, { headToHead: null } as MatchDetails), null);
   assert.equal(formatHeadToHead(partido, null), null);
 });

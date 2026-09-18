@@ -34,6 +34,10 @@ npm run waha:up          # levanta WAHA en Docker
 npm run dev              # levanta el bot
 ```
 
+Está escrito en TypeScript y corre con [tsx](https://github.com/privatenumber/tsx) directo
+sobre los `.ts` (sin paso de build). `npm run typecheck` corre `tsc` sólo para chequear
+tipos.
+
 Después, vinculá tu WhatsApp:
 
 1. Abrí el dashboard de WAHA: http://localhost:3000/dashboard (usuario/clave del `.env`).
@@ -98,7 +102,7 @@ todo el mundo acá, con horarios y reprogramaciones al día—, pero tiene la co
 scraping:
 
 - No hay contrato ni SLA: si cambian la página, el parseo se rompe (los tests de
-  `test/promiedos.test.js` usan un HTML de ejemplo, así que **no** te vas a enterar por
+  `test/promiedos.test.ts` usan un HTML de ejemplo, así que **no** te vas a enterar por
   ahí; te enterás cuando el bot conteste mal).
 - Es uso no previsto del sitio. Mantené el caché alto, no lo consultes en loop y no lo
   uses para nada masivo.
@@ -111,12 +115,13 @@ de 100 requests por día.
 
 ## Avisos automáticos
 
-Además de contestar, el bot puede escribir primero. Con `NOTIFY_TO` cargado manda dos
-mensajes por partido:
+Además de contestar, el bot puede escribir primero. Con `NOTIFY_TO` cargado manda hasta
+tres mensajes por partido:
 
 1. **El día del partido**, a la hora que digas (`NOTIFY_MATCH_DAY_AT`, default 09:00):
    horario, cancha, TV y árbitro.
-2. **Un rato antes** (`NOTIFY_LINEUP_MINUTES`, default 60): la formación, apenas
+2. **El historial de enfrentamientos**, junto con el aviso anterior (sólo con Promiedos).
+3. **Un rato antes** (`NOTIFY_LINEUP_MINUTES`, default 60): la formación, apenas
    Promiedos la publica. Si todavía no salió, reintenta en cada vuelta hasta 15 minutos
    después del inicio; si nunca sale, no manda nada.
 
@@ -178,26 +183,28 @@ Dos detalles que conviene saber:
 
 ```
 src/
-├── index.js                    servidor Express + webhook
-├── config.js                   configuración desde variables de entorno
-├── filters.js                  firma HMAC y qué mensajes se ignoran
-├── waha.js                     cliente de WAHA (sendText, seen, typing)
-├── notifier.js                 avisos automáticos (día del partido y formación)
-├── router.js                   intents y formato de las respuestas
+├── index.ts                    servidor Express + webhook
+├── config.ts                   configuración desde variables de entorno
+├── filters.ts                  firma HMAC y qué mensajes se ignoran
+├── waha.ts                     cliente de WAHA (sendText, seen, typing)
+├── notifier.ts                 avisos automáticos (día del partido, historial y formación)
+├── router.ts                   intents y formato de las respuestas
+├── types/express.d.ts          augmenta Request con rawBody (firma HMAC)
 └── services/football/
-    ├── index.js                elige proveedor + caché
-    ├── normalize.js            forma común de un partido
-    ├── promiedos.js            scraping del __NEXT_DATA__ de promiedos.com.ar
-    ├── apifootball.js
-    └── thesportsdb.js
-test/                           node --test
+    ├── index.ts                elige proveedor + caché
+    ├── types.ts                tipos compartidos (Match, MatchDetails, FootballProvider...)
+    ├── normalize.ts            forma común de un partido
+    ├── promiedos.ts            scraping del __NEXT_DATA__ de promiedos.com.ar
+    ├── apifootball.ts
+    └── thesportsdb.ts
+test/                           tsx --test
 ```
 
 ## Agregar un intent nuevo
 
-En `src/router.js`, sumá una entrada al array `INTENTS`:
+En `src/router.ts`, sumá una entrada al array `INTENTS`:
 
-```js
+```ts
 {
   name: 'clima',
   test: (t) => /clima|temperatura/.test(t),   // t viene en minúsculas y sin acentos

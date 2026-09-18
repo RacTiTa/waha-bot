@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ignoreReason } from '../src/filters.js';
+import { ignoreReason, type IncomingMessage } from '../src/filters.js';
 
-const msg = (extra) => ({ from: '5491122334455@c.us', body: 'hola', fromMe: false, ...extra });
+const msg = (extra: Partial<IncomingMessage> = {}): IncomingMessage => ({
+  from: '5491122334455@c.us',
+  body: 'hola',
+  fromMe: false,
+  ...extra,
+});
 
 test('contesta un chat privado normal', () => {
   assert.equal(ignoreReason(msg()), null);

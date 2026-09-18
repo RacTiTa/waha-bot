@@ -1,8 +1,20 @@
 import crypto from 'node:crypto';
 import { config } from './config.js';
 
+export interface WebhookRequest {
+  get(header: string): string | undefined;
+  rawBody?: Buffer;
+}
+
+export interface IncomingMessage {
+  id?: string;
+  from?: string;
+  fromMe?: boolean;
+  body?: string;
+}
+
 /** Verifica la firma HMAC que envía WAHA (sólo si WEBHOOK_HMAC_KEY está configurada). */
-export function signatureIsValid(req) {
+export function signatureIsValid(req: WebhookRequest): boolean {
   if (!config.webhookHmacKey) return true;
 
   const received = req.get('x-webhook-hmac');
@@ -17,7 +29,7 @@ export function signatureIsValid(req) {
 }
 
 /** Motivo por el que NO hay que contestar este mensaje, o null si se contesta. */
-export function ignoreReason(msg) {
+export function ignoreReason(msg: IncomingMessage): string | null {
   const chatId = msg.from ?? '';
 
   if (msg.fromMe) return 'mensaje propio';
@@ -27,7 +39,7 @@ export function ignoreReason(msg) {
 
   if (config.allowedNumbers.length) {
     const number = chatId.split('@')[0];
-    if (!config.allowedNumbers.includes(number)) return 'número no habilitado';
+    if (!number || !config.allowedNumbers.includes(number)) return 'número no habilitado';
   }
   return null;
 }

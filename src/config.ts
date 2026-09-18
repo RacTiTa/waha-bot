@@ -1,14 +1,16 @@
-const bool = (v, def = false) =>
+import type { TeamIdKey } from './services/football/types.js';
+
+const bool = (v: string | undefined, def = false): boolean =>
   v === undefined ? def : ['1', 'true', 'yes', 'si', 'sí'].includes(String(v).toLowerCase());
 
-const list = (v) =>
+const list = (v: string | undefined): string[] =>
   (v ?? '')
     .split(',')
     .map((s) => s.replace(/\D/g, ''))
     .filter(Boolean);
 
 /** Destinatarios: "5491122334455" o "1234567890@g.us" (grupo). */
-const chatIds = (v) =>
+const chatIds = (v: string | undefined): string[] =>
   (v ?? '')
     .split(',')
     .map((s) => s.trim())
@@ -16,7 +18,7 @@ const chatIds = (v) =>
     .map((s) => (s.includes('@') ? s : `${s.replace(/\D/g, '')}@c.us`));
 
 /** "09:00" -> minutos desde la medianoche. */
-const hhmm = (v, def) => {
+const hhmm = (v: string | undefined, def: number): number => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(v ?? '').trim());
   if (!m) return def;
   return Number(m[1]) * 60 + Number(m[2]);
@@ -48,7 +50,7 @@ export const config = {
       sportsDb: process.env.SPORTSDB_TEAM_ID ?? '135156', // Boca Juniors
       apiFootball: process.env.APIFOOTBALL_TEAM_ID ?? '451', // Boca Juniors
       promiedos: process.env.PROMIEDOS_TEAM_ID ?? 'igg', // Boca Juniors
-    },
+    } satisfies Record<TeamIdKey, string>,
     cacheTtlMs: Number(process.env.FOOTBALL_CACHE_MINUTES ?? 10) * 60 * 1000,
   },
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { dueNotifications } from '../src/notifier.js';
+import { dueNotifications, type SentState } from '../src/notifier.js';
 import { makeMatch } from '../src/services/football/normalize.js';
 
 const settings = {
@@ -13,7 +13,7 @@ const settings = {
 const partido = () =>
   makeMatch({ id: 'egddcjh', home: 'San Lorenzo', away: 'Boca Juniors', date: new Date('2026-09-20T17:45:00Z'), status: 'NS' });
 
-const due = (iso, sent = {}) =>
+const due = (iso: string, sent: SentState = {}) =>
   dueNotifications({ match: partido(), now: new Date(iso), sent, settings });
 
 test('no avisa el día anterior', () => {

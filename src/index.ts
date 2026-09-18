@@ -1,16 +1,22 @@
-import express from 'express';
+import express, { type Request, type Response } from 'express';
 import { config } from './config.js';
-import { ignoreReason, signatureIsValid } from './filters.js';
+import { ignoreReason, signatureIsValid, type IncomingMessage } from './filters.js';
 import { startNotifier } from './notifier.js';
 import { routeMessage } from './router.js';
 import { waha, withTyping } from './waha.js';
 
 const app = express();
-app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
+app.use(
+  express.json({
+    verify: (req: Request, _res: Response, buf: Buffer) => {
+      req.rawBody = buf;
+    },
+  }),
+);
 
-app.get('/health', (_req, res) => res.json({ ok: true, session: config.waha.session }));
+app.get('/health', (_req: Request, res: Response) => res.json({ ok: true, session: config.waha.session }));
 
-app.post('/webhook', async (req, res) => {
+app.post('/webhook', async (req: Request, res: Response) => {
   if (!signatureIsValid(req)) {
     console.warn('[webhook] firma inválida, descartado');
     return res.sendStatus(401);
@@ -19,17 +25,18 @@ app.post('/webhook', async (req, res) => {
   // Se responde enseguida: WAHA reintenta si el webhook tarda o falla.
   res.sendStatus(200);
 
-  const { event, payload } = req.body ?? {};
+  const { event, payload } = (req.body ?? {}) as { event?: string; payload?: IncomingMessage };
   if (event !== 'message' || !payload) return;
 
   const reason = ignoreReason(payload);
   if (reason) return console.log(`[webhook] ignorado (${reason})`);
 
   const chatId = payload.from;
+  if (!chatId) return;
   console.log(`[msg] ${chatId}: ${payload.body}`);
 
   try {
-    const reply = await withTyping(chatId, payload.id, () => routeMessage(payload.body));
+    const reply = await withTyping(chatId, payload.id ?? '', () => routeMessage(payload.body));
     if (reply) {
       await waha.sendText(chatId, reply);
       console.log(`[reply] ${chatId}: ${reply.split('\n')[0]}`);

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { config } from './config.js';
 import { formatHeadToHead, formatLineups, formatMatchDay } from './router.js';
 import { getMatchDetails, getNextMatch, getTeam } from './services/football/index.js';
+import type { Match } from './services/football/types.js';
 import { waha } from './waha.js';
 
 // Si el partido ya empezó y todavía no salió la formación, seguimos mirando
@@ -10,11 +11,11 @@ import { waha } from './waha.js';
 const LINEUP_GRACE_MS = 15 * 60 * 1000;
 
 /** Día local ("2026-09-20") para comparar fechas sin pelearse con la zona horaria. */
-const dayKey = (date, timeZone) =>
+const dayKey = (date: Date, timeZone: string): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 
 /** Minutos desde la medianoche local. */
-function minutesOfDay(date, timeZone) {
+function minutesOfDay(date: Date, timeZone: string): number {
   const [h, m] = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',
@@ -26,20 +27,41 @@ function minutesOfDay(date, timeZone) {
   return Number(h) * 60 + Number(m);
 }
 
+export type NotificationKind = 'matchDay' | 'lineup';
+
+export interface DueNotificationsSettings {
+  timezone: string;
+  matchDayMinutes: number;
+  lineupMinutes: number;
+}
+
+export interface NotifierSettings extends DueNotificationsSettings {
+  pollMs: number;
+}
+
+export interface SentState {
+  matchDay?: boolean;
+  lineup?: boolean;
+}
+
+interface DueNotificationsArgs {
+  match: Match | null;
+  now: Date;
+  sent?: SentState;
+  settings: DueNotificationsSettings;
+}
+
 /**
  * Qué avisos corresponden ahora mismo. Es una función pura: el reloj, lo ya
  * enviado y la configuración entran por parámetro, así se puede testear.
- *
- * @param {{match, now:Date, sent:{matchDay?:boolean,lineup?:boolean}, settings}} args
- * @returns {Array<'matchDay'|'lineup'>}
  */
-export function dueNotifications({ match, now, sent = {}, settings }) {
+export function dueNotifications({ match, now, sent = {}, settings }: DueNotificationsArgs): NotificationKind[] {
   if (!match?.date) return [];
 
   const timeZone = settings.timezone;
   const kickoff = match.date.getTime();
   const t = now.getTime();
-  const due = [];
+  const due: NotificationKind[] = [];
 
   const esHoy = dayKey(now, timeZone) === dayKey(match.date, timeZone);
   if (!sent.matchDay && esHoy && t < kickoff && minutesOfDay(now, timeZone) >= settings.matchDayMinutes) {
@@ -54,9 +76,15 @@ export function dueNotifications({ match, now, sent = {}, settings }) {
   return due;
 }
 
+interface StoredState {
+  matchId: string | null;
+  matchDay: boolean;
+  lineup: boolean;
+}
+
 /** Estado en disco, para no repetir un aviso después de reiniciar el bot. */
-function createStore(file) {
-  let state = { matchId: null, matchDay: false, lineup: false };
+function createStore(file: string) {
+  let state: StoredState = { matchId: null, matchDay: false, lineup: false };
 
   try {
     state = { ...state, ...JSON.parse(fs.readFileSync(file, 'utf8')) };
@@ -66,31 +94,41 @@ function createStore(file) {
 
   return {
     /** Lo enviado para este partido; si cambió el partido, se resetea. */
-    for(matchId) {
+    for(matchId: string | null): StoredState {
       if (state.matchId !== matchId) state = { matchId, matchDay: false, lineup: false };
       return state;
     },
-    mark(key) {
+    mark(key: NotificationKind) {
       state[key] = true;
       try {
         fs.mkdirSync(path.dirname(file), { recursive: true });
         fs.writeFileSync(file, JSON.stringify(state));
       } catch (err) {
         // Sin disco igual no repetimos el aviso mientras el proceso viva.
-        console.warn('[notifier] no pude guardar el estado:', err.message);
+        console.warn('[notifier] no pude guardar el estado:', (err as Error).message);
       }
     },
   };
 }
 
-async function broadcast(send, recipients, text) {
+type Store = ReturnType<typeof createStore>;
+type SendFn = (chatId: string, text: string) => Promise<unknown>;
+
+async function broadcast(send: SendFn, recipients: string[], text: string): Promise<void> {
   for (const chatId of recipients) {
     await send(chatId, text);
     console.log(`[notify] ${chatId}: ${text.split('\n')[0]}`);
   }
 }
 
-async function tick({ send, store, settings, recipients }) {
+interface TickArgs {
+  send: SendFn;
+  store: Store;
+  settings: DueNotificationsSettings;
+  recipients: string[];
+}
+
+async function tick({ send, store, settings, recipients }: TickArgs): Promise<void> {
   const match = await getNextMatch();
   if (!match) return;
 
@@ -99,7 +137,7 @@ async function tick({ send, store, settings, recipients }) {
   if (!due.length) return;
 
   const details = await getMatchDetails(match).catch((err) => {
-    console.warn('[notifier] no pude traer la ficha del partido:', err.message);
+    console.warn('[notifier] no pude traer la ficha del partido:', (err as Error).message);
     return null;
   });
 
@@ -123,6 +161,13 @@ async function tick({ send, store, settings, recipients }) {
   }
 }
 
+export interface StartNotifierOptions {
+  send?: SendFn;
+  settings?: NotifierSettings;
+  recipients?: string[];
+  stateFile?: string;
+}
+
 /**
  * Arranca los avisos automáticos. Devuelve una función para frenarlos, o null
  * si no hay destinatarios configurados (NOTIFY_TO).
@@ -132,7 +177,7 @@ export function startNotifier({
   settings = { ...config.notify, timezone: config.timezone },
   recipients = config.notify.to,
   stateFile = config.notify.stateFile,
-} = {}) {
+}: StartNotifierOptions = {}): (() => void) | null {
   if (!recipients.length) return null;
 
   const store = createStore(stateFile);
