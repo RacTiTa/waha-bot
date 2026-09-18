@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { formatLineups, formatMatch, formatMatchDay } from '../src/router.js';
+import { formatHeadToHead, formatLineups, formatMatch, formatMatchDay } from '../src/router.js';
 import { makeMatch } from '../src/services/football/normalize.js';
 
 const enHoras = (h) => new Date(Date.now() + h * 3_600_000);
@@ -120,4 +120,29 @@ test('la formación lista titulares, DT y bajas', () => {
 test('sin formaciones publicadas no arma mensaje', () => {
   assert.equal(formatLineups(partido, { lineups: null }), null);
   assert.equal(formatLineups(partido, null), null);
+});
+
+const headToHead = {
+  homeWins: 1,
+  awayWins: 2,
+  draws: 1,
+  games: [
+    { home: 'Boca Juniors', away: 'Instituto', homeScore: 1, awayScore: 1, league: 'Liga Profesional Argentina', date: new Date('2026-03-11T22:45:00Z') },
+    { home: 'Instituto', away: 'Boca Juniors', homeScore: 0, awayScore: 3, league: 'Copa de la Liga Profesional', date: new Date('2024-04-12T20:30:00Z') },
+  ],
+};
+
+test('el historial suma el resumen de victorias y el detalle de cada cruce', () => {
+  const texto = formatHeadToHead(partido, { headToHead });
+
+  assert.match(texto, /Historial Boca Juniors vs Instituto/);
+  assert.match(texto, /Boca Juniors ganó 1/);
+  assert.match(texto, /Instituto ganó 2/);
+  assert.match(texto, /empataron 1/);
+  assert.match(texto, /11\/03: Boca Juniors 1-1 Instituto \(Liga Profesional Argentina\)/);
+});
+
+test('sin historial no arma mensaje', () => {
+  assert.equal(formatHeadToHead(partido, { headToHead: null }), null);
+  assert.equal(formatHeadToHead(partido, null), null);
 });

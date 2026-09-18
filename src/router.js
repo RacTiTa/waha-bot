@@ -8,10 +8,11 @@ import {
 } from './services/football/index.js';
 
 const HELP = [
-  '👋 Hola! Soy un bot. Por ahora sé dos cosas:',
+  '👋 Hola! Soy un bot. Por ahora sé esto:',
   '',
   '• *próximo partido de Boca* — te digo cuándo juega',
   '• *formación* — el once, si ya lo publicaron',
+  '• *historial* — los últimos enfrentamientos entre los equipos',
   '',
   'Escribí *ayuda* para ver esto de nuevo.',
 ].join('\n');
@@ -136,6 +137,41 @@ export function formatLineups(match, details) {
     .trimEnd();
 }
 
+function formatDateShort(date) {
+  const [month, day] = new Intl.DateTimeFormat('en-CA', { day: '2-digit', month: '2-digit', timeZone: config.timezone })
+    .format(date)
+    .split('-');
+  return `${day}/${month}`;
+}
+
+function headToHeadLine(game) {
+  return `${formatDateShort(game.date)}: ${game.home} ${game.homeScore}-${game.awayScore} ${game.away}${game.league ? ` (${game.league})` : ''}`;
+}
+
+/** Resultados de los últimos enfrentamientos directos entre los dos equipos. */
+export function formatHeadToHead(match, details) {
+  const h2h = details?.headToHead;
+  if (!h2h?.games?.length) return null;
+
+  const resumen = [
+    h2h.homeWins ? `${match.home} ganó ${h2h.homeWins}` : null,
+    h2h.awayWins ? `${match.away} ganó ${h2h.awayWins}` : null,
+    h2h.draws ? `empataron ${h2h.draws}` : null,
+  ]
+    .filter((l) => l !== null)
+    .join(', ');
+
+  return [
+    `📊 *Historial ${match.home} vs ${match.away}*`,
+    resumen || null,
+    '',
+    ...h2h.games.map(headToHeadLine),
+  ]
+    .filter((l) => l !== null)
+    .join('\n')
+    .trimEnd();
+}
+
 async function lineupsReply() {
   const match = await getNextMatch();
   if (!match) return '🤔 No tengo el próximo partido, así que menos la formación.';
@@ -152,6 +188,17 @@ async function lineupsReply() {
   ]
     .filter((l) => l !== null)
     .join('\n');
+}
+
+async function headToHeadReply() {
+  const match = await getNextMatch();
+  if (!match) return '🤔 No tengo el próximo partido, así que menos el historial.';
+
+  const details = await getMatchDetails(match).catch(() => null);
+  const texto = formatHeadToHead(match, details);
+  if (texto) return texto;
+
+  return `🤔 No tengo el historial de enfrentamientos entre ${match.home} y ${match.away}.`;
 }
 
 async function nextMatchReply() {
@@ -190,6 +237,14 @@ const INTENTS = [
       /(pr[oó]ximo|proxima|siguiente).*(partido|encuentro)/.test(t) ||
       /(cu[aá]ndo|cuando|a qu[eé] hora|que d[ií]a).*(juega|jueguen|partido)/.test(t),
     run: nextMatchReply,
+  },
+  {
+    name: 'historial',
+    // "historial", "enfrentamientos", "antecedentes", "ultimos partidos entre"
+    test: (t) =>
+      /\b(historial|enfrentamientos|antecedentes)\b/.test(t) ||
+      /ultimos.*(partidos|cruces|duelos).*(entre|contra)/.test(t),
+    run: headToHeadReply,
   },
   {
     name: 'ayuda',

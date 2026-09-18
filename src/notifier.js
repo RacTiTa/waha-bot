@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from './config.js';
-import { formatLineups, formatMatchDay } from './router.js';
+import { formatHeadToHead, formatLineups, formatMatchDay } from './router.js';
 import { getMatchDetails, getNextMatch, getTeam } from './services/football/index.js';
 import { waha } from './waha.js';
 
@@ -106,6 +106,10 @@ async function tick({ send, store, settings, recipients }) {
   if (due.includes('matchDay')) {
     const team = await getTeam().catch(() => null);
     await broadcast(send, recipients, formatMatchDay(match, team?.name ?? 'el equipo', details));
+
+    const historial = formatHeadToHead(match, details);
+    if (historial) await broadcast(send, recipients, historial);
+
     store.mark('matchDay');
   }
 

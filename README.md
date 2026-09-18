@@ -3,7 +3,7 @@
 Bot de WhatsApp sobre [WAHA](https://waha.devlike.pro/) (WhatsApp HTTP API).
 Recibe mensajes por webhook, los rutea a un *intent* y responde consultando una API externa.
 
-Sabe **cuándo juega Boca**, **cómo forma** y te avisa solo el día del partido.
+Sabe **cuándo juega Boca**, **cómo forma**, el **historial de enfrentamientos** y te avisa solo el día del partido.
 
 ```
 ⚽ Próximo partido de Boca Juniors
@@ -88,9 +88,10 @@ https://www.promiedos.com.ar/team/x/igg
 El `id` sale de la URL del equipo en el sitio (`/team/boca-juniors/igg` → `igg`) y se
 configura con `PROMIEDOS_TEAM_ID`.
 
-La ficha de cada partido (`/game/x/{id}`) agrega formaciones, bajas, árbitro, TV y la
+La ficha de cada partido (`/game/x/{id}`) agrega formaciones, bajas, árbitro, TV, la
 liga real —la página del equipo no la trae, por eso los partidos de copa salen sin el
-`🏆` hasta que se consulta la ficha—.
+`🏆` hasta que se consulta la ficha— y el historial de los últimos enfrentamientos entre
+los dos equipos.
 
 Para datos de fútbol argentino es lo más confiable que hay gratis —es la fuente que mira
 todo el mundo acá, con horarios y reprogramaciones al día—, pero tiene la contra de todo

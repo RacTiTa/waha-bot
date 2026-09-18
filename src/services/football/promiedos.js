@@ -124,6 +124,34 @@ function toLineups(game) {
   };
 }
 
+/**
+ * Últimos enfrentamientos directos entre los dos equipos. `home_wins`/`away_wins`
+ * ya vienen calculados en relación a los equipos de *este* partido (no al que
+ * jugó de local en cada cruce histórico).
+ */
+function toHeadToHead(game) {
+  const h2h = game.head_to_head;
+  if (!h2h) return null;
+
+  const games = (h2h.games ?? [])
+    .map((g) => {
+      const [home, away] = g.teams ?? [];
+      const [homeScore, awayScore] = g.scores ?? [];
+      return {
+        home: home?.name,
+        away: away?.name,
+        homeScore,
+        awayScore,
+        league: g.league?.name ?? null,
+        date: toDate(g.start_time),
+      };
+    })
+    .filter((g) => g.date);
+  if (!games.length) return null;
+
+  return { homeWins: h2h.home_wins ?? 0, awayWins: h2h.away_wins ?? 0, draws: h2h.draws ?? 0, games };
+}
+
 /** Lesionados y suspendidos: vienen en un array por equipo, en el mismo orden. */
 function toMissing(game) {
   return (game.players?.missing_players ?? [])
@@ -206,6 +234,7 @@ export function createPromiedos({ fetchImpl = fetch } = {}) {
         tv: infoValue(game, 'Arg TV'),
         lineups: toLineups(game),
         missing: toMissing(game),
+        headToHead: toHeadToHead(game),
       };
     },
   };
