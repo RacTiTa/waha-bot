@@ -1,6 +1,8 @@
 services:
   waha:
     image: devlikeapro/waha:latest
+    # Solo hay imagen amd64; en Apple Silicon corre emulada via Rosetta/QEMU.
+    platform: linux/amd64
     container_name: waha
     restart: unless-stopped
     ports:
@@ -21,6 +23,12 @@ services:
       # Dashboard en http://localhost:3000/dashboard
       WAHA_DASHBOARD_USERNAME: ${WAHA_DASHBOARD_USERNAME:-admin}
       WAHA_DASHBOARD_PASSWORD: ${WAHA_DASHBOARD_PASSWORD:-admin}
+
+      # Swagger docs. El dashboard manda WHATSAPP_SWAGGER_USERNAME como x-api-key
+      # por un bug (https://github.com/devlikeapro/waha/issues/2269), por eso
+      # tiene que ser igual a WAHA_API_KEY para que el dashboard pueda conectarse.
+      WHATSAPP_SWAGGER_USERNAME: ${WHATSAPP_SWAGGER_USERNAME}
+      WHATSAPP_SWAGGER_PASSWORD: ${WHATSAPP_SWAGGER_PASSWORD}
     volumes:
       - ./.waha-sessions:/app/.sessions
     extra_hosts:
